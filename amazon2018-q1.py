@@ -34,22 +34,27 @@
 # Following is the implementation of above.
 
 
+def merge_sort(arr):
+    mid = int(len(arr)/2)
+    if len(arr) <= 2:
+        print(arr)
+        if arr[-1] < arr[0]:
+            arr[0], arr[-1] = arr[-1], arr[0]
+        return arr
+    return merge(merge_sort(arr[:mid]), merge_sort(arr[mid:]))
+
 def merge(left, right):
-    output = []
-    i, j = 0, 0
+    out, i, j = [], 0, 0
     while i < len(left) and j < len(right):
         if left[i] < right[j]:
-            output.append(left[i])
+            out.append(left[i])
             i += 1
         else:
-            output.append(right[j])
+            out.append(right[j])
             j += 1
-    result += left[i:]
-    result += right[j:]
-    return result
 
-def merge_sort(l):
-    mid = int(len(l)/2)
-    if mid <= 1:
-        return l
-    print(merge(merge_sort(l[mid:]), merge_sort(l[:mid])))
+    out += left[i:]
+    out += right[j:]
+    return out
+
+merge_sort([2,5,1,6,4])
