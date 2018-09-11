@@ -1,7 +1,7 @@
 from copy import copy
 import json
 
-PYTHON_MAX_RECURSION_LIMIT = 1000
+PYTHON_MAX_RECURSION_LIMIT = 500
 
 inp = {
     "asteroids": [
@@ -50,13 +50,14 @@ inp = {
 class Ship(object):
 
     v = 0
-    a = 0
     pos = 0
     t = 0
     blast_position = 0
 
     solution = []
     visited = []
+
+    parent = None
 
     def __repr__(self):
         return "<Ship at {0} with {1} v>".format(self.pos, self.v)
@@ -66,6 +67,9 @@ class Ship(object):
         self.t_per_blast_move = data.get('t_per_blast_move')
         self.safety_distance = len(self.asteroids)
         print("SAFETY IS AT : {0}".format(self.safety_distance))
+
+    def get_queue(self):
+        return list(set(self.queue or []) - set(self.visited))
 
     def blast_zone_check(self):
         if (
@@ -104,80 +108,71 @@ class Ship(object):
             return True
         return False
 
+    def has_moves(self):
+        if len(self.visited) < 3:
+            return True
+        return False
+
     def try_to_move(self):
-        queue = self.potential_positions()
+        self.queue = self.potential_positions()
 
         if self.pos >= self.safety_distance:
-            return True
+            return 'safe'
         # if in blast
         if not self.blast_zone_check():
-            return False
+            return 'dead'
 
-        if len(queue) == 0:
+        if len(self.queue) == 0:
+            # self.solution.pop()
+            parent = self.parent
+            while not parent.get_queue():
+                parent = parent.parent
+            print(parent.get_queue())
+            return parent.move()
 
-            self.solution.pop()
-            return self.parent.try_to_move()
-
-        if queue[0] == 'end':
-            self.solution.append(queue[-1])
+        if self.queue[0] == 'end':
+            self.solution.append(self.queue[-1])
             print(self.solution)
             return True
-        return self.move(queue)
+        return self.move()
 
-    def move(self, queue):
-        for next_pos in queue:
+    def move(self):
+        for next_pos in self.get_queue():
             # not full and not visited node
             # if next_pos == 'end':
             #     self.solution.append(queue[-1])
             #     print(self.solution)
             #     return True
-            child = copy(self)
+            # child = copy(self)
+            child = self
             child.visited = []
             child.t += 1
             child.pos = next_pos
             child.v = next_pos - self.pos
             d = next_pos - self.pos - self.v
             self.solution.append(d)
-
-            child.parent = self
-            child.parent.visited.append(next_pos)
-
+            self.visited.append(next_pos)
+            child.parent = self.parent
             return child.try_to_move()
-    # def move(self):
-    #     if self.pos >= self.max_offset:
-    #         return self.solution
-    #     if not self.blast_zone_check():
-    #         return False
-
-    #     maybe_move = self.potential_positions()
-    #     print("t: {0} p: {1} v: {2} a: {3}\nvisited:{4} ".format(
-    #         self.t, self.pos, self.v, maybe_move, self.visited))
-
-    #     self.parent = copy(self)
-    #     for next_pos in maybe_move:
-    #         if not self.is_pos_full_next_turn(next_pos):
-    #             a = next_pos - (self.pos + self.v)
-    #             # print("t: {0} p: {1} v: {2} a: {3}".format(
-    #             #     self.t, self.pos, self.v, a))
-    #             self.v += a
-    #             self.pos = next_pos
-    #             self.t += 1
-    #             self.solution.append(a)
-    #             self.parent.visited.append(next_pos)
-    #             return self.move()
-
-    #     self.parent.t -= 1
-    #     self.parent.visited.append(self.pos)
-    #     self.parent.pos = self.parent.pos - self.parent.v
-    #     self.parent.v = self.parent.v - self.parent.solution.pop()
-
-    #     return self.parent.move()
-
 
 with open("v3_chart.json") as f:
     data = f.read()
 
 inp = json.loads(data)
-ship = Ship(inp)
-ee = ship.try_to_move()
-print(ee)
+ship = Ship(inp).try_to_move()
+
+print("pos {pos} v:{v} turn: {t}>".format(pos=ship.pos, v=ship.v, t=ship.t))
+# while type(ship) == Ship:
+#     turn_count = len(ship.solution)
+#     visited = ship.visited
+#     ship = Ship(inp)
+#     for a in ship.solution:
+#         prev_state = copy(ship)
+#         ship.t += 1
+#         ship.v += a
+#         ship.pos += ship.v
+#         ship.parent = prev_state
+#     ship.visited = visited
+#     print(ship.pos)
+#     ship = ship.try_to_move(0)
+
