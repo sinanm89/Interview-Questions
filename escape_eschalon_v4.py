@@ -1,5 +1,10 @@
 import json
 
+# chart v3 has a list of asteroids that are in a non-changable order
+# each asteroid has a cycle which changes each turn
+# an astroid with an offset 0 is an illegal move
+# initial offset value is given
+# find the shortest path (in terms of turns) to reach the end.
 
 class Ship(object):
 
@@ -134,6 +139,7 @@ start_ship.priority_queue += children
 ee = start_ship.move()
 ee.directions = [-1, 0, 1]
 cc = 0
+
 while ee.parent:
     if ee.get_queue():
         ee = ee.move()
@@ -143,7 +149,6 @@ while ee.parent:
         else:
             cc+=1
     ee = ee.parent
-print('-'*90); import pdb; pdb.set_trace()  # breakpoint d8ca08ad  noqa  //
 
 asteroid_count = len(inp['asteroids'])
 print("SAFETY IS AT : {0}".format(asteroid_count))
