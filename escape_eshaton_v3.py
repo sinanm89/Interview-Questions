@@ -1,6 +1,6 @@
 import json
-# import sys
-# sys.setrecursionlimit(3000)
+import sys
+sys.setrecursionlimit(3000)
 # PYTHON_MAX_RECURSION_LIMIT = 500
 
 
@@ -8,7 +8,9 @@ class Ship(object):
 
     blast_position = 0
 
-    solution = []
+    solution = None
+    potential_moves = []
+    visited_nodes = []
 
     def __repr__(self):
         return "<Ship at {0} with {1} v>".format(self.pos, self.v)
@@ -17,10 +19,6 @@ class Ship(object):
         self, asteroids=None, t_per_blast_move=None,
         a=None, t=None, p=None, v=None, d=None, parent=None
     ):
-        # self.visited = []
-        self.visited = False
-        self.a = a
-        self.priority_queue = []
         self.d = d
         self.t = t
         self.v = v
@@ -31,7 +29,19 @@ class Ship(object):
         self.safety_distance = len(self.asteroids)
 
     def __lt__(self, other):
-        return self.pos < other.pos
+        return self.weight() < other.weight()
+
+    def __eq__(self, other):
+        sss = {
+            "v": self.v, "t": self.t, "pos": self.pos
+        }
+        other = {
+            "v": other.v, "t": other.t, "pos": other.pos
+        }
+        return sss == other
+
+    def weight(self):
+        return self.pos + self.v + self.t
 
     def blast_zone_check(self):
         if (
@@ -54,10 +64,6 @@ class Ship(object):
         out = []
         for dd in directions:
             next_pos = self.pos + self.v + dd
-            if next_pos >= len(self.asteroids):
-                return 'end'
-            if next_pos in visited:
-                continue
             if not self.pos_full_next_turn(next_pos):
                 vv = self.v + dd
                 pos = self.pos + vv
@@ -67,7 +73,8 @@ class Ship(object):
                     p=pos, v=vv, d=dd,
                     t=self.t + 1, parent=self
                 )
-                out.append(ss)
+                if not(ss in self.visited_nodes):
+                    out.append(ss)
         return out
 
     def pos_full_next_turn(self, pos):
@@ -78,56 +85,80 @@ class Ship(object):
         return False
 
 
-def backtrack_until_move_avail(ship, visited=[]):
-    # prev_ship_pos = ship.pos
-    queue = ship.get_queue(visited=visited)
-    # visited.append(ship.parent)
-    visited.sort()
-    while queue:
-        qq = queue.pop(0)
-        # because we tried the bigger value and it didnt work
-        if visited and qq.pos >= visited[0]:
-            continue
-        if qq.get_queue(visited=visited):
-            # this can move
-            break
-    else:
-        visited = [ship.pos]
-        qq = backtrack_until_move_avail(ship.parent, visited)
-    return qq
+# def backtrack_until_move_avail(ship, visited=[]):
+#     queue = ship.get_queue(visited=visited)
+#     visited.sort()
+#     while queue:
+#         qq = queue.pop(0)
+#         # because we tried the bigger value and it didnt work
+#         # if qq.pos >= visited[0]:
+#             # continue
+#         if qq.get_queue(visited=visited):
+#             # this can move
+#             break
+#     else:
+#         qq = backtrack_until_move_avail(ship.parent, [ship.pos])
+#     return qq
 
 
-def move(ship):
+def move(ship, prev=None):
     queue = ship.get_queue()
-    queue.sort(reverse=True)
+    queue.sort()
+    if ship not in ship.visited_nodes:
+        ship.visited_nodes.append(ship)
+    if ship.pos >= len(ship.asteroids):
+        return ship
     while queue and ship.pos < len(ship.asteroids):
-        if queue == 'end':
-            return ship
-        child = queue.pop(0)
+        child = queue.pop()
         child.parent = ship
         child.t = ship.t + 1
-        if child.get_queue():
-            ship.solution.append(child.d)
-            return move(child)
-        else:
-            continue
-    return move(backtrack_until_move_avail(ship.parent, [ship.pos]))
+        for i in child.get_queue():
+            if i in ship.visited_nodes or len(i.get_queue()) == 0:
+                continue
+            elif i not in ship.potential_moves:
+                ship.potential_moves.append(i)
+    return ship
 
 with open("v3_chart.json") as f:
     data = f.read()
 
 inp = json.loads(data)
 ship = Ship(
-    inp['asteroids'].reverse(), t_per_blast_move=inp['t_per_blast_move'],
+    inp['asteroids'], t_per_blast_move=inp['t_per_blast_move'],
     a=0, t=0, p=0, v=0, parent=None
 )
-queue = ship.get_queue()
-ship.priority_queue += queue
-ship.priority_queue.sort(reverse=True)
+
 asteroid_count = len(inp['asteroids'])
 print("SAFETY IS AT : {0}".format(asteroid_count))
 
 ship = move(ship)
+ship.visited_nodes = []
+
+
+def update_pot_moves(ship):
+    temp_pot_moves = []
+    for ee in ship.potential_moves:
+        for i in ee.get_queue():
+            if i in ship.visited_nodes or len(i.get_queue()) == 0:
+                continue
+            elif i not in temp_pot_moves:
+                temp_pot_moves.append(i)
+    ship.potential_moves = temp_pot_moves
+    if ship.t > 140:
+        print('-'*90); import pdb; pdb.set_trace()  # breakpoint 4aa85a71  noqa  //
+
+    # ship.potential_moves.sort(reverse=True)
+    ship.potential_moves.sort()
+    # ship.potential_moves = sorted(ship.potential_moves, key=lambda w: w.weight())   # sort by weight
+    return ship
+
+while ship.potential_moves:
+    ship = move(ship.potential_moves.pop())
+    ship = update_pot_moves(ship)
+
+        # for i in ship.potential_moves:
+        #     for j in ship.potential_moves:
+        #         if i.pos == j.pos and i.v == j.v:
 
 out = []
 while ship.parent:
@@ -135,4 +166,4 @@ while ship.parent:
     out.append(ship.d)
     ship = ship.parent
 out.reverse()
-print out
+print(out)
