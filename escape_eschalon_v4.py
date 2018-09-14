@@ -51,10 +51,10 @@ class Ship(object):
     def __eq__(self, other):
 
         sss = {
-            "pos": self.pos, "t": self.t
+            "pos": self.pos, "v": self.v
         }
         other = {
-            "pos": other.pos, "t": other.t
+            "pos": other.pos, "v": self.v
         }
         return sss == other
 
@@ -223,59 +223,47 @@ def move_with_equilibrium(ship, unchangable_ships=None):
     if not unchangable_ships:
         return ship.move()
     ship.priority_queue = ship.get_queue()
+    queue = ship.priority_queue
     i = 0
     child = None
     while ship.priority_queue:
         need_to_be_ship = unchangable_ships[i]
+        if queue:
+            if ship.equilibrium < 0:
+                child = queue[0]
+            if ship.equilibrium >= 0:
+                child = queue[-1]
+            # if ship.equilibrium == 0:
+                # child = queue[len(queue)//2]
+        else:
+            if ship.equilibrium > 0:
+                child = ship.priority_queue.pop(0)
+            if ship.equilibrium <= 0:
+                child = ship.priority_queue.pop()
 
-        if ship.equilibrium < 0:
-            child = ship.priority_queue[0]
-        if ship.equilibrium > 0:
-            child = ship.priority_queue[-1]
-        if ship.equilibrium == 0:
-            if len(ship.priority_queue) > 2:
-                child = ship.priority_queue[1]
-            else:
-                child = ship.priority_queue[len(ship.priority_queue)//2]
+        if (
+            child.pos >= len(child.asteroids) -1 or
+            child in unchangable_ships
+        ):
+            break
 
-        # if child not in ship.visited_nodes:
-            # ship.visited_nodes.qappend(child)
+        if child not in ship.visited_nodes:
+            ship.visited_nodes.append(child)
         if need_to_be_ship:
-            if child.pos >= need_to_be_ship.pos:
+            if child.pos >= need_to_be_ship.pos and i < len(unchangable_ships) - 1:
                 i += 1
-        print("{c} \t {a}".format(
+        print("{c} \t {e} \t {a} \t {pq}".format(
             c=child,
             a=ship.asteroids[child.pos-1],
             # l=(ship.asteroids[child.pos].get('offset') + child.t + 1) % ship.asteroids[child.pos].get('t_per_asteroid_cycle'),
-            # e=unchangable_ships[3:]
+            e=ship.equilibrium,
+            pq=len(ship.priority_queue)
         ))
-
-        ship.equilibrium = child.v - need_to_be_ship.v -1
-        ship.priority_queue = child.get_queue()
+        ship.equilibrium = child.v - need_to_be_ship.v
+        queue = child.get_queue()
+        ship.priority_queue += child.get_queue()
 
     return child
-
-# inp = {
-#   "t_per_blast_move": 10,
-#   "asteroids": [
-#     {
-#       "offset": 0,
-#       "t_per_asteroid_cycle": 2
-#     },
-#     {
-#       "offset": 1,
-#       "t_per_asteroid_cycle": 3
-#     },
-#     {
-#       "offset": 3,
-#       "t_per_asteroid_cycle": 4
-#     },
-#     {
-#       "offset": 1,
-#       "t_per_asteroid_cycle": 2
-#     }
-#   ]
-# }
 
 unchangable_ships = find_impossible_gaps(inp['asteroids'])
 
@@ -297,7 +285,7 @@ start_ship = Ship(
     t=0, p=0, v=0, parent=None
 )
 
-last_dude = move_with_equilibrium(start_ship, unchangable_ships)
+last_dude = move_with_equilibrium(start_ship, unchangable_ships[:])
 ee = last_dude
 sol = []
 while last_dude.parent:
