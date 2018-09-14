@@ -20,6 +20,8 @@ class Ship(object):
 
     directions = [1, 0, -1]
 
+    equilibrium = 0
+
     def __repr__(self):
         return "<Ship at {0} v: {1} t: {2} >".format(self.pos, self.v, self.t)
 
@@ -30,7 +32,7 @@ class Ship(object):
         self.asteroids = asteroids
         self.t_per_blast_move = t_per_blast_move
         self.safety_distance = len(self.asteroids)
-
+        self.reverse = False
         self.d = d
         self.t = t
         self.v = v
@@ -58,6 +60,8 @@ class Ship(object):
 
     def pos_full_next_turn(self, pos):
         ast = self.asteroids[pos - 1]
+        if self.reverse:
+            ast = self.asteroids[pos]
         cycle = ast.get('t_per_asteroid_cycle')
         if (ast.get('offset') + self.t + 1) % cycle == 0:
             return True
@@ -88,15 +92,19 @@ class Ship(object):
             if not self.blast_zone_check(next_pos, self.t):
                 continue
             if next_pos >= len(self.asteroids):
-                print('ASTEROIDS DONEEEEE')
+                # finishing step
                 next_pos = len(self.asteroids) - 1
+                return [Ship(
+                    asteroids=self.asteroids,
+                    t_per_blast_move=self.t_per_blast_move,
+                    p=next_pos, v=self.v + dd, d=dd,
+                    t=self.t + 1, parent=self
+                )]
             if not self.pos_full_next_turn(next_pos):
-                vv = self.v + dd
-                pos = self.pos + vv
                 ss = Ship(
                     asteroids=self.asteroids,
                     t_per_blast_move=self.t_per_blast_move,
-                    p=pos, v=vv, d=dd,
+                    p=next_pos, v=self.v + dd, d=dd,
                     t=self.t + 1, parent=self
                 )
                 if ss in self.visited_nodes:
@@ -104,8 +112,6 @@ class Ship(object):
                 out.append(ss)
         return out
 
-
-    # 12561
     def get_reverse_queue(self):
         # the highest weighted diretion is accelating forwards
         # since were getting closer to the safezone
@@ -117,10 +123,10 @@ class Ship(object):
                 continue
             if not self.blast_zone_check(next_pos, self.t):
                 continue
-            if next_pos <= need_to_get_to_position:
-                print('ASTEROIDS DONEEEEE')
-                next_pos = len(self.asteroids) - 1
-                return [next_pos]
+            # if next_pos <= need_to_get_to_position:
+            #     print('ASTEROIDS DONEEEEE')
+            #     next_pos = len(self.asteroids) - 1
+            #     return [next_pos]
             if not self.pos_full_next_turn(next_pos):
                 vv = self.v + dd
                 pos = self.pos - vv
@@ -144,14 +150,9 @@ class Ship(object):
             furthest_child = self.priority_queue.pop(0)
             if furthest_child not in self.visited_nodes:
                 self.visited_nodes.append(furthest_child)
-                if reverse:
-                    if furthest_child.pos <= need_to_get_to_position:
-                        # fin
-                        break
-                else:
-                    if furthest_child.pos >= len(self.asteroids):
-                        # fin
-                        break
+                if furthest_child.pos >= len(self.asteroids):
+                    # fin
+                    break
             if reverse:
                 furthest_child.children = furthest_child.get_reverse_queue()
             else:
@@ -167,6 +168,39 @@ class Ship(object):
                     break
         return furthest_child
 
+
+def safe(cycle):
+    return cycle != 1
+
+
+def find_impossible_gaps(asteroids):
+    speed = 0
+    gap_list = []
+    for i in range(0, len(asteroids)):
+        ast = asteroids[i]
+        cycle = ast.get('t_per_asteroid_cycle')
+        # if i == 3725:
+        if not safe(cycle) and speed == 0:
+            # impossibility start
+            # gap_list[i] = speed
+            speed += 1
+        elif not safe(cycle) and speed != 0:
+            # impossibility in progress
+            speed += 1
+        if safe(cycle) and speed != 0:
+            # impossibility end
+            start_index = i - (speed + 1)
+            gap_list.append((start_index, speed))
+            speed = 0
+        elif safe(cycle):
+            # safe
+            speed = 0
+    if speed != 0:
+        start_index = i - speed
+        gap_list.append((start_index, speed))
+    return gap_list
+
+
 with open("v3_chart.json") as f:
     data = f.read()
 
@@ -179,95 +213,87 @@ children = start_ship.get_queue()
 start_ship.children = children
 start_ship.priority_queue += children
 ff = start_ship.move()
+last_forward_ship = ff
+asteroids = ff.asteroids[ff.pos:]
 
 
-def find_last_legal_moves(ship):
-    out = []
-    cc = 0
-    qq = ship.asteroids[ff.pos - 1:]
-    qq.reverse()
+gap_list = find_impossible_gaps(asteroids)
+unchangable_ships = []
+for index, speed in gap_list:
+    pos = ff.pos + index
+    vvv = speed + 1
+    ddd = 0
+    possible_time = 0
+    ss = Ship(
+        asteroids=ff.asteroids,
+        t_per_blast_move=ff.t_per_blast_move,
+        p=pos, v=vvv, d=ddd,
+        t=possible_time, parent=None
+    )
+    unchangable_ships.append(ss)
 
-    while cc < len(qq):
-        ast = qq[cc]
-        if ast.get('t_per_asteroid_cycle') != 1:
-            # because reverse index
-            out.append(cc+1)
-        cc += 1
-    return out
-# index of the asteroid that we can jump to, everything else is illegal
+lship = unchangable_ships[-1]
+lship.reverse = True
+print("SAFETY IS AT : {0}".format(len(ff.asteroids)))
+revq = unchangable_ships[-1].get_reverse_queue()
 
-need_to_get_to_position = ff.pos
-legal_indexes = find_last_legal_moves(ff)
-escape_velocity = legal_indexes[0]
-last_legal_position = len(ff.asteroids) - legal_indexes[0]
-last_ship = Ship(
-    inp['asteroids'], t_per_blast_move=inp['t_per_blast_move'],
-    p=last_legal_position, v=escape_velocity, t=0, parent=None
-)
+uu = unchangable_ships[0]
+uu.reverse = False
+children = uu.get_queue()
+while not children:
+    uu.t += 1
+    children = uu.get_queue()
+uu.children = children
+uu.priority_queue += children
 
-last_ship.need_to_get_to_position = need_to_get_to_position
-rr = last_ship.move(reverse=True)
+solution_route = uu.move()
+print(ff)
+while solution_route.parent:
+    solution_route = solution_route.parent
 
-asteroids = rr.asteroids[ff.pos:rr.pos]
-speed = 0
-speed_map = {}
+# v1 = last_forward_ship.v
+# v2 = solution_route.v
 
-difference = 0
-for i in range(0, len(asteroids)):
-    ast = asteroids[i]
-    cycle = ast.get('t_per_asteroid_cycle')
-    if len(speed_map) == 0 and cycle == 1:
-        # enter the first value that starts with the illegal move
-        speed_map[i-1] = speed
-        difference = i-1
-        continue
-    if cycle == 1:
-        speed += 1
-    if cycle != 1 and speed == 0:
-        continue
-    if cycle != 1:
-        speed_map[i] = speed
-        speed = 0
+# if v1 < v2:
+#     v1, v2 = v2, v1
+
+while last_forward_ship.v >= solution_route.v:
+    last_forward_ship = last_forward_ship.parent
+last_forward_ship = last_forward_ship.parent
+
+last_forward_ship.visited_nodes = []
+
+equilibrium = 0
+if equilibrium > 0:
+    # direction pref
+    prefer = 2
+if equilibrium < 0:
+    prefer = 0
+else:
+    prefer = 1
 
 
-print('-'*90); import pdb; pdb.set_trace()  # breakpoint 9a49957d  noqa  //
+def choose_closest_route_to_equilibrium(ship, queue):
+    if ship.equilibrium > 0:
+        child = queue[-1]
+    elif ship.equilibrium < 0:
+        child = queue[0]
+    elif ship.equilibrium == 0:
+        child = queue[len(queue) // 2]
+    return child
+
+
+def move_with_equilibrium(ship, reverse=False):
+    ship.priority_queue = ship.get_queue()
+    while ship.priority_queue:
+        child = choose_closest_route_to_equilibrium(ship, queue)
+        ship.equilibrium += child.d
+        queue = child.children = child.get_queue()
+    return child
+
+
+
+print('-'*90); import pdb; pdb.set_trace()  # breakpoint 34242ce4  noqa  //
+
 print('donezo')
 
-
-
-
-
-
-
-
-
-
-# while not children:
-#     # get the last visited node
-#     cutoff_point = ff.visited_nodes[(-1 * (cc + 1))]
-#     cutoff_point = cutoff_point.pos
-#     leftover = ff.asteroids[cutoff_point:]
-#     leftover.reverse()
-#     start_ship = Ship(
-#         leftover, t_per_blast_move=inp['t_per_blast_move'],
-#         a=0, t=0, p=0, v=0, parent=None
-#     )
-#     children = start_ship.get_queue()
-
-# start_ship.priority_queue += children
-# ee = start_ship.move()
-# print('-'*90); import pdb; pdb.set_trace()  # breakpoint 1e92ee27  noqa  //
-
-
-# while ee.parent:
-#     if ee.get_queue():
-#         ee = ee.move()
-#         if cc % 1000 == 0:
-#             print(ee)
-#             cc = 0
-#         else:
-#             cc+=1
-#     ee = ee.parent
-
-asteroid_count = len(inp['asteroids'])
-print("SAFETY IS AT : {0}".format(asteroid_count))
