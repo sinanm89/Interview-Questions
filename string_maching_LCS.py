@@ -9,31 +9,17 @@ def optimised_LCSLength(X, Y):
         for f in range(1, k):
             if X[i] == Y[f]:
                 temp[f] = prev[f-1] + 1
-                B[i][f] = 1
+                B[i][f] = 'd'
 
             elif prev[f] >= temp[f-1]:
                 temp[f] = prev[f]
-                B[i][f] = 0
+                B[i][f] = 'u'
             else:
                 temp[f] = max(temp[f-1], prev[f])
-                B[i][f] = None
+                B[i][f] = '-'
 
         prev = temp
     return temp[-1], B
-
-# def backtrackAll(C, X, Y, i, j):
-#     if i == 0 or j == 0:
-#         return {""}
-#     if X[i] == Y[j]:
-#         return {Z + X[i] for Z in backtrackAll(C, X, Y, i-1, j-1)}
-#     R = {""}
-#     if C[i][j-1] >= C[i-1][j]:
-#         # import pdb; pdb.set_trace()
-#         R = R.union(backtrackAll(C, X, Y, i, j-1))
-#     if C[i-1][j] >= C[i][j-1]:
-#         # import pdb; pdb.set_trace()
-#         R = R.union(backtrackAll(C, X, Y, i-1, j))
-#     return R
 
 def backtrackLCS(word, solution_t, x, y):
     if x == 0 or y == 0:
@@ -54,10 +40,13 @@ w1, w2 = list("ABCDEFG"), list("BCDGK")
 w1, w2 = "XMJYAUZ", "MZJAWXU"
 w1, w2 = "SHINCHAN", "NOHARAAA"
 # w1,w2 = "GAC","AGCAT"
-# w1,w2 = "ABCBDAB","BDCABA"
+w1,w2 = "ABCBDAB","BDCABA"
 max_len, solution = optimised_LCSLength(w1,w2)
-for i in range(len(C)): print(C[i], "\t", B[i])
+for i in range(len(solution)): print(solution[i])
 print('-'*30)
 # print(backtrackAll(C, w1, w2, len(w1)-1, len(w2)-1))
 import pdb; pdb.set_trace()
+backtrackLCS(w1, solution, len(solution)-1, len(solution[0])-1)
+print('-'*30)
+
 backtrackLCS(w1, solution, len(solution)-1, len(solution[0])-1)
